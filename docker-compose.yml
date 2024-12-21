@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts  
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jenkins
+    restart: always
+    depends_on:
+      - docker
+    networks:
+      - jenkins
+    environment:
+      - JENKINS_OPTS=--httpPort=8080 --httpsPort=8443 --httpsKeyStore=/var/certs/jenkins.jks --httpsKeyStorePassword=password
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+      - "8443:8443"
+    volumes:
+      - ./jenkins_home:/var/jenkins_home
+      - ./certs:/var/certs
+      - /var/run/docker.sock:/var/run/docker.sock
+  
+  docker:
+    image: docker:dind
+    container_name: docker-dind
+    restart: always
+    privileged: true
+    networks:
+      - jenkins
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - ./jenkins_home:/var/jenkins_home
+      - jenkins-docker-certs:/certs/client
+      - ./code:/home
+    ports:
+      - "2376:2376"
+    command: --storage-driver overlay2
+
+networks:
+  jenkins:
+    driver: bridge
+
+volumes:
+  jenkins_home:
+  certs:
+  jenkins-docker-certs:

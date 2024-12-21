@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts  
+    image: custom-jenkins:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -15,6 +15,7 @@ services:
     environment:
       - JENKINS_OPTS=--httpPort=8080 --httpsPort=8443 --httpsKeyStore=/var/certs/jenkins.jks --httpsKeyStorePassword=password
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - DOCKER_HOST=unix:///var/run/docker.sock
     ports:
       - "8080:8080"
       - "50000:50000"
@@ -23,7 +24,10 @@ services:
       - ./jenkins_home:/var/jenkins_home
       - ./certs:/var/certs
       - /var/run/docker.sock:/var/run/docker.sock
-  
+      - /usr/bin/docker:/usr/bin/docker
+    group_add:
+      - 125
+
   docker:
     image: docker:dind
     container_name: docker-dind
@@ -32,11 +36,10 @@ services:
     networks:
       - jenkins
     environment:
-      DOCKER_TLS_CERTDIR: /certs
+      - DOCKER_TLS_CERTDIR=""
     volumes:
-      - ./jenkins_home:/var/jenkins_home
       - jenkins-docker-certs:/certs/client
-      - ./code:/home
+      - docker-dind-home:/home
     ports:
       - "2376:2376"
     command: --storage-driver overlay2
@@ -49,3 +52,4 @@ volumes:
   jenkins_home:
   certs:
   jenkins-docker-certs:
+  docker-dind-home:

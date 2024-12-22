@@ -2,48 +2,39 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'jenkins_avs-jenkins:latest'
-        DOCKER_CONTAINER_NAME = 'jenkins'
-        DOCKER_PORT = '80:80'
+        REPO_URL = 'https://github.com/Kevanko/avs_jenkins_CD.git'
+        APP_IMAGE = 'rgr2-app:latest'
+        DOCKER_COMPOSE_FILE = '../docker-compose.yml'
+        UID = '1000' 
+        GID = '1000'
+    
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Second Repo') {
             steps {
-                git branch: 'main', url: 'https://github.com/Kevanko/avs_jenkins_CD.git'
+                git branch: 'main', url: "${REPO_URL}"
             }
         }
 
-        stage('Deploy') {
+        stage('Build and Deploy using Docker Compose') {
             steps {
                 script {
-                    // Остановка и удаление только контейнера docker-dind, если он существует
-                    sh '''
-                        if docker ps -a --filter "name=docker-dind" -q; then
-                            echo "Removing existing docker-dind container..."
-                            docker rm -f docker-dind || true
-                        fi
-                    '''
+                    def changes = sh(script: "git diff --stat", returnStdout: true).trim()
 
-                    // Запуск контейнеров через docker-compose
-                    sh 'docker compose -f docker-compose.yml up -d docker'
-
-                    // Проверка состояния контейнеров
-                    sh 'docker ps -a'
+                    if (changes) {
+                        echo "Изменения в репозитории обнаружены."
+                    } else {
+                        echo "Изменений нет, процесс сборки пропущен."
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+                
+                    
+                        sh "docker compose  build"                       
+                        sh "docker compose  up -d app"
+                    }
                 }
             }
         }
     }
-
-    post {
-        always {
-            echo 'Pipeline finished'
-        }
-        success {
-            echo ':)'
-        }
-        failure {
-            echo ':('
-        }
-    }
-}
